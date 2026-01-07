@@ -1,3 +1,19 @@
+interface QuizField {
+  name: string;
+  label: string;
+  placeholder?: string;
+}
+
+export interface QuizStep {
+  id: number;
+  key: string;
+  title: string;
+  type: "multi" | "pair" | "inputs" | "range";
+  options?: string[];
+  fields?: QuizField[];
+  required?: boolean;
+}
+
 export const quizSteps: QuizStep[] = [
   { id: 1, key: "occasion",   title: "What are you shopping for?",      type: "multi",  options: ["Work","Casual","Date","Party","Travel","Formal"], required: true },
   { id: 2, key: "style_vibe", title: "Which style describes you best?", type: "multi",  options: ["Minimal","Street","Smart-casual","Athleisure","Classic","Trendy"], required: true },

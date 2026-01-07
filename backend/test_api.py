@@ -1,25 +1,33 @@
+"""
+Test script for H&M API integration.
+Run with: python test_api.py
+"""
+
 import asyncio
-import json
 from hm_client import hm_list_products
 
+
 async def test_hm_api():
-    print("🧪 Testing H&M API...")
+    """Test H&M API connectivity and product fetching."""
+    print("🧪 Testing H&M API...\n")
     
     try:
         # Test 1: Fetch men's trousers
-        print("\n1️⃣ Fetching men's trousers...")
+        print("1️⃣ Fetching men's trousers...")
         result = await hm_list_products("men_trousers", page=0, size=5)
         
-        print(f"✅ Found {len(result.get('results', []))} products")
+        products = result.get('results', [])
+        print(f"✅ Found {len(products)} products")
         
         # Display first product
-        if result.get('results'):
-            product = result['results'][0]
+        if products:
+            product = products[0]
             print(f"\n📦 First product:")
             print(f"  Name: {product.get('name')}")
             print(f"  Price: {product.get('price', {}).get('formattedValue')}")
             print(f"  Code: {product.get('code')}")
-            print(f"  Image: {product.get('images', [{}])[0].get('url', 'N/A')[:80]}...")
+            image_url = product.get('images', [{}])[0].get('url', 'N/A')
+            print(f"  Image: {image_url[:80]}...")
         
         # Test 2: Different category
         print("\n2️⃣ Fetching men's shirts...")
@@ -30,6 +38,8 @@ async def test_hm_api():
         
     except Exception as e:
         print(f"❌ Error: {e}")
+        raise
+
 
 if __name__ == "__main__":
     asyncio.run(test_hm_api())

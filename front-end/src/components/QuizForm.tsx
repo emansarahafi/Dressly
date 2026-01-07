@@ -1,17 +1,20 @@
 import { useState, useEffect } from "react";
 import { quizSteps } from "../lib/quizSteps";
-import { ChevronLeft, ChevronRight, Check } from "lucide-react";
-import Axios from "axios";
+import { ChevronLeft, ChevronRight, Check, Loader2 } from "lucide-react";
+import api from "../lib/api";
 
 interface QuizFormProps {
-  onComplete: (answers: Record<string, any>) => void;
+  onComplete: (result: { recommendation: string; products: any[] }) => void;
+  onError?: (message: string) => void;
 }
 
-export default function QuizForm({ onComplete }: QuizFormProps) {
+export default function QuizForm({ onComplete, onError }: QuizFormProps) {
   // ============= STATE =============
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [currentAnswer, setCurrentAnswer] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // ============= COMPUTED VALUES =============
   const totalSteps = quizSteps.length;
@@ -25,37 +28,62 @@ export default function QuizForm({ onComplete }: QuizFormProps) {
     setCurrentAnswer(answers[currentStep.key] || null);
   }, [step, currentStep.key, answers]);
 
-const sendData = async (answers: Record<string, any>) => {
-  try {
-    const response = await Axios.post(
-      "http://127.0.0.1:8000/quiz/submit",
-      answers
-    );
-
- console.log("AI result:", response.data.recommendation);
-    return response.data;
-
-  } catch (error) {
-    console.error("Error sending quiz:", error);
-  }
-};
+  const sendData = async (answers: Record<string, any>) => {
+    try {
+      const response = await api.post("/quiz/submit", answers);
+      console.log("✅ AI result:", response.data.recommendation);
+      console.log("✅ Products:", response.data.products);
+      return response.data;
+    } catch (error) {
+      console.error("❌ Error sending quiz:", error);
+      throw error;
+    }
+  };
 
   // ============= NAVIGATION =============
-  const next = () => {
+  const isAnswerValid = () => {
+    if (!currentStep.required) return true;
+    if (!currentAnswer) return false;
+    
+    if (currentStep.type === "multi") {
+      return Array.isArray(currentAnswer) && currentAnswer.length > 0;
+    }
+    if (currentStep.type === "pair" || currentStep.type === "inputs" || currentStep.type === "range") {
+      return Object.keys(currentAnswer).length > 0 && Object.values(currentAnswer).every(v => v);
+    }
+    return true;
+  };
+
+  const next = async () => {
+    // Validate required fields
+    if (!isAnswerValid()) {
+      setError("Please answer this question before continuing");
+      return;
+    }
+    
+    setError(null);
     const newAnswers = { ...answers, [currentStep.key]: currentAnswer };
     setAnswers(newAnswers);
 
     if (isLastStep) {
-      onComplete(newAnswers)
-      sendData(newAnswers);
-      console.log({newAnswers})
-
+      setLoading(true);
+      try {
+        const result = await sendData(newAnswers);
+        onComplete(result);
+      } catch (error: any) {
+        const errorMessage = error.response?.data?.detail || "Failed to submit quiz. Please try again.";
+        setError(errorMessage);
+        onError?.(errorMessage);
+      } finally {
+        setLoading(false);
+      }
     } else {
       setStep(step + 1);
     }
   };
 
   const prev = () => {
+    setError(null);
     const newAnswers = { ...answers, [currentStep.key]: currentAnswer };
     setAnswers(newAnswers);
 
@@ -84,7 +112,7 @@ const sendData = async (answers: Record<string, any>) => {
 
       return (
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {currentStep.options.map((option: string) => {
+          {currentStep.options?.map((option: string) => {
             const isSelected = selected.includes(option);
 
             return (
@@ -127,7 +155,7 @@ const sendData = async (answers: Record<string, any>) => {
 
       return (
         <div className="flex gap-4 max-w-sm mx-auto">
-          {currentStep.fields.map((field) => (
+          {currentStep.fields?.map((field) => (
             <div key={field.name} className="flex-1">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 {field.label}
@@ -155,7 +183,7 @@ const sendData = async (answers: Record<string, any>) => {
 
       return (
         <div className="space-y-4 max-w-md mx-auto">
-          {currentStep.fields.map((field) => (
+          {currentStep.fields?.map((field) => (
             <div key={field.name}>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 {field.label}
@@ -184,7 +212,7 @@ const sendData = async (answers: Record<string, any>) => {
 
       return (
         <div className="space-y-4 max-w-md mx-auto">
-          {currentStep.fields.map((field) => (
+          {currentStep.fields?.map((field) => (
             <div key={field.name}>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 {field.label}
@@ -241,6 +269,13 @@ const sendData = async (answers: Record<string, any>) => {
               {currentStep.title}
             </h2>
 
+            {/* Error Message */}
+            {error && (
+              <div className="mb-6 p-4 bg-red-50 border-2 border-red-200 rounded-lg">
+                <p className="text-sm text-red-600 text-center font-medium">{error}</p>
+              </div>
+            )}
+
             <div className="mb-8">{renderQuestion()}</div>
           </div>
 
@@ -249,7 +284,7 @@ const sendData = async (answers: Record<string, any>) => {
             <button
               type="button"
               onClick={prev}
-              disabled={isFirstStep}
+              disabled={isFirstStep || loading}
               className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-100"
             >
               <ChevronLeft className="w-5 h-5" />
@@ -258,45 +293,28 @@ const sendData = async (answers: Record<string, any>) => {
 
             <button
               type="button"
-              onClick={()=>next()}
-              //disabled={!isStepValid()}
+              onClick={() => void next()}
+              disabled={loading}
               className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-rose-500 to-pink-500 text-white rounded-xl font-medium shadow-md hover:shadow-lg disabled:opacity-40 disabled:cursor-not-allowed hover:scale-105 transition-all"
             >
-              <span>{isLastStep ? "Complete" : "Next"}</span>
-              {isLastStep ? (
-                
-                <Check className="w-5 h-5" />
+              {loading ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>Processing...</span>
+                </>
               ) : (
-                <ChevronRight className="w-5 h-5" />
+                <>
+                  <span>{isLastStep ? "Complete" : "Next"}</span>
+                  {isLastStep ? (
+                    <Check className="w-5 h-5" />
+                  ) : (
+                    <ChevronRight className="w-5 h-5" />
+                  )}
+                </>
               )}
             </button>
           </div>
         </div>
-
-        {/* Debug Info (Optional - remove in production) */}
-        <details className="mt-4">
-          <summary className="cursor-pointer text-sm text-gray-600 hover:text-gray-900">
-             Debug Info
-          </summary>
-          <div className="bg-white rounded-lg shadow p-4 mt-2 space-y-3">
-            <div>
-              <strong className="text-xs text-gray-500">
-                Current Answer (temporary):
-              </strong>
-              <pre className="bg-gray-50 p-2 rounded text-xs overflow-auto">
-                {JSON.stringify(currentAnswer, null, 2)}
-              </pre>
-            </div>
-            <div>
-              <strong className="text-xs text-gray-500">
-                Saved Answers:
-              </strong>
-              <pre className="bg-gray-50 p-2 rounded text-xs overflow-auto">
-                {JSON.stringify(answers, null, 2)}
-              </pre>
-            </div>
-          </div>
-        </details>
       </div>
     </div>
   );
