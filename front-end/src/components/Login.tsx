@@ -38,23 +38,23 @@ export default function Login({ onLoginSuccess, onSkip }: LoginProps) {
     return true;
   };
 
-  const handleSubmit = async (e: React.FormEvent) {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
-    
+
     if (!validateForm()) {
       return;
     }
-    
+
     setLoading(true);
 
     try {
       const endpoint = isSignup ? "/auth/signup" : "/auth/login";
       const response = await api.post(endpoint, formData);
-      
+
       localStorage.setItem("token", response.data.token);
       localStorage.setItem("user", JSON.stringify(response.data.user));
-      
+
       onLoginSuccess(response.data.user);
     } catch (err: any) {
       setError(err.response?.data?.detail || "Authentication failed");

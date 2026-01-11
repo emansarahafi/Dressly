@@ -1,4 +1,5 @@
 import google.generativeai as genai
+from google.api_core import exceptions as gcloud_exceptions
 import os
 from dotenv import load_dotenv
 
@@ -47,10 +48,10 @@ async def generate_style(data: dict) -> dict:
     """
 
     try:
-        model = genai.GenerativeModel('gemini-pro')
+        model = genai.GenerativeModel('gemini-2.5-flash-lite')
         response = model.generate_content(prompt)
         text = response.text
-        
+
         # Parse categories from response
         categories = []
         if "CATEGORIES:" in text:
@@ -68,10 +69,28 @@ async def generate_style(data: dict) -> dict:
                 categories = ['men_jeans', 'women_jeans', 'men_tshirtstanks']
             else:
                 categories = ['men_clothing', 'women_clothing']
-        
+
         return {
             "text": recommendations,
             "categories": categories[:3]  # Limit to 3 categories
+        }
+    except gcloud_exceptions.NotFound as e:
+        # Model not found for this API version — provide a safe deterministic fallback
+        print(f"⚠️ Gemini model not available: {e}. Returning fallback recommendations.")
+        occasions = data.get('occasion', [])
+        if 'Work' in occasions or 'Formal' in occasions:
+            categories = ['women_blazerssuits', 'men_blazerssuits', 'men_trousers']
+            recommendations = "Classic tailored outfit: blazer, crisp shirt, and tailored trousers. Colors: neutrals with a pop of color. Avoid overly casual items."
+        elif 'Casual' in occasions:
+            categories = ['women_jeans', 'men_jeans', 'women_tops']
+            recommendations = "Casual outfit: well-fitted jeans, comfortable top, and layered outerwear. Colors: denim and earth tones. Avoid formal fabrics."
+        else:
+            categories = ['women_clothing', 'men_clothing', 'women_tops']
+            recommendations = "Versatile outfit suggestion: mix basics with one statement piece. Stick to a coherent color palette and consider proportion."
+
+        return {
+            "text": recommendations,
+            "categories": categories[:3]
         }
     except Exception as e:
         print(f"❌ AI generation error: {e}")

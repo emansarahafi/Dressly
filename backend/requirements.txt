@@ -21,4 +21,11 @@ passlib[bcrypt]==1.7.4
 python-jose[cryptography]==3.3.0
 python-multipart==0.0.9
 
+# Email validation (required by Pydantic for EmailStr)
+# Pydantic >=2 requires email-validator >=2.0
+email-validator>=2.0
+
+# Ensure CA certificates for TLS (fixes macOS cert verification with Atlas)
+certifi==2024.12.14
+
 # CORS (included with fastapi)
