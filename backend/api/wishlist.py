@@ -37,17 +37,33 @@ async def add_to_wishlist(item: WishlistItemRequest, user = Depends(get_current_
     if existing:
         return {"message": "Item already in wishlist"}
     
-    # Add to wishlist
+    # Normalize price: accept multiple keys used across responses
+    price_raw = item.price or {}
+    product_price = (
+        price_raw.get("formattedPrice") or
+        price_raw.get("formattedValue") or
+        price_raw.get("formatted") or
+        ""
+    )
+
+    # Normalize image URL from common keys
+    image_url = ""
+    if item.images and len(item.images) > 0:
+        first = item.images[0]
+        image_url = first.get("url") or first.get("imageUrl") or first.get("src") or ""
+
+    # Build wishlist record and store full payload for frontend flexibility
     wishlist_item = {
         "user_id": user_id,
         "product_code": item.code,
         "product_name": item.name,
-        "product_price": item.price.get('formattedValue', ''),
-        "product_image": item.images[0].get('url', '') if item.images else '',
+        "product_price": product_price,
+        "product_image": image_url,
+        "product_payload": item.dict(),
     }
-    
+
     wishlist_collection.insert_one(wishlist_item)
-    
+
     return {"message": "Item added to wishlist"}
 
 
@@ -61,13 +77,17 @@ async def get_wishlist(user = Depends(get_current_user)):
     # Convert to product format
     products = []
     for item in items:
-        products.append({
-            "code": item["product_code"],
-            "name": item["product_name"],
-            "price": {"formattedValue": item["product_price"]},
-            "images": [{"url": item["product_image"]}]
-        })
-    
+        payload = item.get("product_payload")
+        if payload:
+            products.append(payload)
+        else:
+            products.append({
+                "code": item["product_code"],
+                "name": item["product_name"],
+                "price": {"formattedValue": item["product_price"]},
+                "images": [{"url": item["product_image"]}]
+            })
+
     return {"items": products}
 
 

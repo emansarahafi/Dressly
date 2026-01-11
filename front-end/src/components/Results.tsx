@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Sparkles, ShoppingBag, Heart, Share2, ArrowLeft } from "lucide-react";
+import { useToast } from "../hooks/useToast";
 
 interface Product {
   code: string;
@@ -21,6 +22,7 @@ interface ResultsProps {
 
 export default function Results({ recommendation, products, onBack, onSaveToWishlist }: ResultsProps) {
   const [savedItems, setSavedItems] = useState<Set<string>>(new Set());
+  const { showToast, ToastContainer } = useToast();
 
   const handleSave = (product: Product) => {
     setSavedItems(prev => new Set(prev).add(product.code));
@@ -36,6 +38,28 @@ export default function Results({ recommendation, products, onBack, onSaveToWish
   };
 
   const sections = parseRecommendation(recommendation);
+
+  const handleShare = async (product: Product) => {
+    const code = product?.code;
+    const url = `https://www2.hm.com/en_us/productpage.${code}.html`;
+    const title = product?.name || "Item from Dressly";
+    const text = `${title} — ${product?.price?.formattedValue || ""}`;
+
+    try {
+      if ((navigator as any).share) {
+        await (navigator as any).share({ title, text, url });
+        showToast("Shared successfully", "info");
+      } else if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(url);
+        showToast("Link copied to clipboard", "info");
+      } else {
+        showToast("Sharing not supported on this device", "info");
+      }
+    } catch (err) {
+      console.error("Share error", err);
+      showToast("Failed to share", "info");
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-rose-50 via-white to-pink-50">
@@ -57,6 +81,7 @@ export default function Results({ recommendation, products, onBack, onSaveToWish
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-8">
+        <ToastContainer />
         {/* AI Recommendations Section */}
         <div className="mb-12">
           <div className="flex items-center gap-3 mb-6">
@@ -111,6 +136,7 @@ export default function Results({ recommendation, products, onBack, onSaveToWish
                         <Heart className={`w-5 h-5 ${savedItems.has(product.code) ? 'fill-current' : ''}`} />
                       </button>
                       <button
+                        onClick={() => handleShare(product)}
                         className="p-2 bg-white/90 backdrop-blur-sm rounded-full text-gray-700 hover:bg-white hover:text-rose-500 transition-colors"
                         title="Share"
                       >

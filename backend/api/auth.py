@@ -3,6 +3,7 @@ Authentication routes: signup, login, profile.
 """
 
 from fastapi import APIRouter, HTTPException, Depends, Header
+from bson.objectid import ObjectId
 from pydantic import BaseModel, EmailStr
 from services.database import client
 from utils.auth import hash_password, verify_password, create_access_token, decode_token
@@ -47,11 +48,19 @@ async def get_current_user(authorization: Optional[str] = Header(None)):
         raise HTTPException(status_code=401, detail="Invalid token")
     
     user_id = payload.get("sub")
+
+    # Try to find by stored id. Some flows store as ObjectId, others as string.
     user = users_collection.find_one({"_id": user_id})
-    
+
+    if not user and user_id and ObjectId.is_valid(user_id):
+        try:
+            user = users_collection.find_one({"_id": ObjectId(user_id)})
+        except Exception:
+            user = None
+
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
-    
+
     return user
 
 

@@ -12,21 +12,42 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Password hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Use PBKDF2-SHA256 to avoid native bcrypt backend issues in some environments.
+# This provides secure hashing and does not require the optional `bcrypt` package.
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
 # JWT settings
-SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-this-in-production")
+SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
 
 
 def hash_password(password: str) -> str:
     """Hash a password."""
-    return pwd_context.hash(password)
+    # bcrypt has a 72-byte input limit. Truncate the UTF-8 bytes to avoid errors
+    # while preserving as much of the user's password as possible.
+    if password is None:
+        password = ""
+    encoded = password.encode("utf-8")
+    if len(encoded) > 72:
+        encoded = encoded[:72]
+        # decode with ignore to avoid cutting a multi-byte char in half
+        safe_password = encoded.decode("utf-8", "ignore")
+    else:
+        safe_password = password
+
+    return pwd_context.hash(safe_password)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a password against a hash."""
+    if plain_password is None:
+        plain_password = ""
+    encoded = plain_password.encode("utf-8")
+    if len(encoded) > 72:
+        encoded = encoded[:72]
+        plain_password = encoded.decode("utf-8", "ignore")
+
     return pwd_context.verify(plain_password, hashed_password)
 
 
