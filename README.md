@@ -135,21 +135,27 @@ Dressly/
 
 ## 🔌 API Endpoints
 
+Note: Backend routers are mounted with prefixes in `backend/main.py`:
+
+- Authentication routes are available under `/auth`
+- Quiz routes are available under `/quiz`
+- Wishlist routes are available under `/wishlist`
+
 ### Authentication
 
-- `POST /api/signup` - Create a new user account
-- `POST /api/login` - Authenticate user and get JWT token
-- `GET /api/me` - Get current user profile (requires auth)
+- `POST /auth/signup` - Create a new user account
+- `POST /auth/login` - Authenticate user and get JWT token
+- `GET /auth/me` - Get current user profile (requires auth)
 
 ### Quiz & Recommendations
 
-- `POST /api/submit` - Submit quiz answers, get AI recommendations with products
+- `POST /quiz/submit` - Submit quiz answers, receive AI recommendations and product suggestions
 
 ### Wishlist
 
-- `POST /api/wishlist/add` - Add product to wishlist
-- `GET /api/wishlist/get/{user_id}` - Get user's saved products
-- `DELETE /api/wishlist/remove/{user_id}/{product_code}` - Remove item
+- `POST /wishlist` - Add product to authenticated user's wishlist (body: product details)
+- `GET /wishlist` - Get authenticated user's saved products
+- `DELETE /wishlist/{product_code}` - Remove item from authenticated user's wishlist
 
 ### Health
 
